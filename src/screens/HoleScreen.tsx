@@ -64,16 +64,15 @@ const baselinePerformance: Record<LieCondition, Record<string, number>> = {
     '10': 1.3,
   },
   Green: {
-    '60': 2.0,
-    '50': 1.9,
-    '40': 1.8,
-    '30': 1.6,
-    '20': 1.4,
-    '15': 1.2,
-    '10': 1.0,
-    '5': 0.6,
-    '3': 0.3,
-    '1': 0.1,
+    '20': 2.5,
+    '15': 2.3,
+    '10': 2.0,
+    '7': 1.9,
+    '5': 1.7,
+    '3': 1.5,
+    '2': 1.3,
+    '1': 1.1,
+    '0.33': 1.0,
   },
 };
 
@@ -101,9 +100,6 @@ const HoleScreen = () => {
   // For new shot entry
   const [shotLie, setShotLie] = useState<LieCondition>('Fairway');
   const [distanceToHole, setDistanceToHole] = useState<string>('');
-
-  // Add holed state
-  const [isHoled, setIsHoled] = useState(false);
 
   // Load course and hole data
   const loadCourseAndRound = useCallback(async () => {
@@ -173,7 +169,6 @@ const HoleScreen = () => {
       setEditShotLie('Fairway');
       setEditDistanceToHole('');
       setShowEditShotModal(false);
-      setIsHoled(false);
 
       // Load data for the current hole
       loadCourseAndRound();
@@ -184,7 +179,7 @@ const HoleScreen = () => {
     }, [loadCourseAndRound])
   );
 
-  // Initialize first shot when hole data is set
+  // Initialize first shot when hole data is set - update to support hole-in-one
   useEffect(() => {
     if (holeDataSet && shots.length === 0 && distance) {
       // Create first shot automatically
@@ -199,6 +194,10 @@ const HoleScreen = () => {
 
       setShots([firstShot]);
       setCurrentShot(firstShot);
+
+      // Clear other input states when creating first shot
+      setDistanceToHole('');
+      setShotLie('Fairway');
     }
   }, [holeDataSet, shots.length, distance, holeNumber]);
 
@@ -291,11 +290,21 @@ const HoleScreen = () => {
     }
   };
 
-  // Calculate expected strokes from current position
+  // Fix calculateExpectedStrokes to handle feet vs yards correctly
   const calculateExpectedStrokes = (lie: LieCondition, distance: number): number => {
     if (!baselinePerformance[lie]) {
       console.warn(`No baseline data for lie: ${lie}`);
       return 0;
+    }
+
+    // Important: Our baseline data is stored with distances in yards
+    // But for Green, the UI displays in feet
+    // Ensure distance is in proper units (yards) before calculating
+    let distanceInYards = distance;
+    if (lie === 'Green') {
+      // If we're on the green, distance is in feet in the UI, but our baseline data expects yards
+      // Convert feet to yards (3 feet = 1 yard)
+      distanceInYards = distance / 3;
     }
 
     // Get available distances for this lie
@@ -304,11 +313,11 @@ const HoleScreen = () => {
       .sort((a, b) => a - b);
 
     // Find closest distance points for interpolation
-    if (distance <= distances[0]) {
+    if (distanceInYards <= distances[0]) {
       return baselinePerformance[lie][distances[0].toString()];
     }
 
-    if (distance >= distances[distances.length - 1]) {
+    if (distanceInYards >= distances[distances.length - 1]) {
       return baselinePerformance[lie][distances[distances.length - 1].toString()];
     }
 
@@ -317,7 +326,7 @@ const HoleScreen = () => {
     let upperDist = distances[distances.length - 1];
 
     for (let i = 0; i < distances.length - 1; i++) {
-      if (distances[i] <= distance && distance <= distances[i + 1]) {
+      if (distances[i] <= distanceInYards && distanceInYards <= distances[i + 1]) {
         lowerDist = distances[i];
         upperDist = distances[i + 1];
         break;
@@ -328,10 +337,10 @@ const HoleScreen = () => {
     const lowerStrokes = baselinePerformance[lie][lowerDist.toString()];
     const upperStrokes = baselinePerformance[lie][upperDist.toString()];
 
-    return lowerStrokes + ((distance - lowerDist) / (upperDist - lowerDist)) * (upperStrokes - lowerStrokes);
+    return lowerStrokes + ((distanceInYards - lowerDist) / (upperDist - lowerDist)) * (upperStrokes - lowerStrokes);
   };
 
-  // Calculate strokes gained for a shot
+  // Fix the calculation formula - it was reversed
   const calculateStrokesGained = (shot: Shot, nextShot: Shot | null): number => {
     // Expected strokes from current position
     const expectedFromCurrent = calculateExpectedStrokes(shot.lie, shot.distanceToHole);
@@ -339,9 +348,76 @@ const HoleScreen = () => {
     // Expected strokes from next position (or 0 if holed)
     const expectedFromNext = nextShot ? calculateExpectedStrokes(nextShot.lie, nextShot.distanceToHole) : 0;
 
-    // Strokes gained = expected before - (expected after + 1)
-    // The +1 represents the actual stroke taken
-    return parseFloat((expectedFromCurrent - (expectedFromNext + 1)).toFixed(2));
+    // When shooting from position A to position B:
+    // Positive SG means you did BETTER than expected
+    // SG = (Expected strokes from A) - (1 shot taken + Expected strokes from B)
+    // If you took more shots than expected or left yourself in a worse position, SG will be negative
+    return parseFloat((expectedFromCurrent - (1 + expectedFromNext)).toFixed(2));
+  };
+
+  // Add a debug function to help diagnose issues
+  const debugStrokesGainedCalculation = (shot: Shot): void => {
+    if (shot.lie === 'Green') {
+      console.log(`Green putt at ${shot.distanceToHole} yards (${shot.distanceToHole * 3}ft):`);
+      const expected = calculateExpectedStrokes(shot.lie, shot.distanceToHole);
+      console.log(`Expected strokes: ${expected}`);
+      console.log(`Made in 1 stroke, SG = ${expected - 1}`);
+    }
+  };
+
+  // Fix handleCompleteHole to handle units correctly
+  const handleCompleteHole = () => {
+    if (!holeDataSet || shots.length === 0) {
+      Alert.alert('Error', 'No shots to complete');
+      return;
+    }
+
+    // Complete last shot
+    const updatedShots = [...shots];
+    const lastShotIndex = updatedShots.length - 1;
+    const lastShot = updatedShots[lastShotIndex];
+
+    // Debug calculation for Green shots
+    if (lastShot.lie === 'Green') {
+      debugStrokesGainedCalculation(lastShot);
+    }
+
+    updatedShots[lastShotIndex] = {
+      ...lastShot,
+      distanceTraveled: lastShot.distanceToHole,
+      completed: true,
+    };
+
+    // For the final putt/shot:
+    // Expected strokes to hole out from this lie/distance
+    const expectedStrokes = calculateExpectedStrokes(lastShot.lie, lastShot.distanceToHole);
+
+    // Positive SG means better than expected
+    const strokesGained = parseFloat((expectedStrokes - 1).toFixed(2));
+
+    const lastShotWithSG = {
+      ...updatedShots[lastShotIndex],
+      strokesGained,
+    };
+    updatedShots[lastShotIndex] = lastShotWithSG;
+
+    // For previous shots, recalculate SG normally
+    const shotsWithSG = updatedShots.map((shot, index) => {
+      if (index < updatedShots.length - 1) {
+        // For previous shots, calculate against the next shot
+        const nextShot = updatedShots[index + 1];
+        const strokesGained = calculateStrokesGained(shot, nextShot);
+        return { ...shot, strokesGained };
+      }
+      // Return the already calculated last shot
+      return shot;
+    });
+
+    setShots(shotsWithSG);
+    setHoleCompleted(true);
+
+    // Save shots to round
+    saveShots(shotsWithSG);
   };
 
   // Update strokes gained for all shots
@@ -367,7 +443,31 @@ const HoleScreen = () => {
     });
   };
 
-  // Update the handleAddShot function to handle holed shots
+  // Ensure the display converts properly
+  const formatDistanceWithUnits = (distance: number, lie: LieCondition): string => {
+    if (lie === 'Green') {
+      // Convert to feet (1 yard = 3 feet)
+      // Note: distance is already stored in yards in our data model
+      const feet = Math.round(distance * 3);
+      return `${feet} ft`;
+    }
+    return `${distance} yds`;
+  };
+
+  // Helper function to handle input conversion when lie type is Green
+  const handleDistanceInputChange = (value: string) => {
+    setDistanceToHole(value);
+  };
+
+  // Update distance placeholder based on lie
+  const getDistancePlaceholder = (): string => {
+    if (shotLie === 'Green') {
+      return 'Distance to hole (feet)';
+    }
+    return 'Distance to hole (yards)';
+  };
+
+  // Simplify handleAddShot function without holed options
   const handleAddShot = () => {
     if (!holeDataSet) {
       Alert.alert('Error', 'Please set hole data first');
@@ -387,7 +487,17 @@ const HoleScreen = () => {
 
     if (lastShot && !lastShot.completed) {
       const prevDistanceToHole = lastShot.distanceToHole;
-      const currentDistanceToHole = parseFloat(distanceToHole);
+      let currentDistanceToHole = parseFloat(distanceToHole);
+
+      // If current shot is on the green and previous was not, convert feet to yards
+      if (shotLie === 'Green' && lastShot.lie !== 'Green') {
+        currentDistanceToHole = currentDistanceToHole / 3;
+      }
+      // If current shot is not on green and previous was on green, convert yards to feet
+      else if (shotLie !== 'Green' && lastShot.lie === 'Green') {
+        currentDistanceToHole = currentDistanceToHole * 3;
+      }
+
       const distanceTraveled = Math.max(0, prevDistanceToHole - currentDistanceToHole);
 
       updatedShots[lastShotIndex] = {
@@ -397,15 +507,21 @@ const HoleScreen = () => {
       };
     }
 
-    // Create new shot
+    // Create new shot with proper distance units
+    let shotDistanceToHole = parseFloat(distanceToHole);
+
+    // If on green, convert feet to yards for storage
+    if (shotLie === 'Green') {
+      shotDistanceToHole = shotDistanceToHole / 3;
+    }
+
     const newShot: Shot = {
       id: Date.now().toString(),
       holeNumber,
       shotNumber: shots.length + 1,
       lie: shotLie,
-      distanceToHole: parseFloat(distanceToHole),
-      completed: isHoled, // Mark as completed if holed
-      distanceTraveled: isHoled ? parseFloat(distanceToHole) : undefined, // Set distance traveled if holed
+      distanceToHole: shotDistanceToHole, // Always store in yards
+      completed: false,
     };
 
     updatedShots.push(newShot);
@@ -415,39 +531,9 @@ const HoleScreen = () => {
 
     setShots(shotsWithSG);
     setCurrentShot(newShot);
-    setHoleCompleted(isHoled); // Mark hole as completed if shot was holed
 
     // Reset inputs
     setDistanceToHole('');
-    setIsHoled(false);
-
-    // Save shots to round
-    saveShots(shotsWithSG);
-  };
-
-  // Also update handleCompleteHole
-  const handleCompleteHole = () => {
-    if (!holeDataSet || shots.length === 0) {
-      Alert.alert('Error', 'No shots to complete');
-      return;
-    }
-
-    // Complete last shot
-    const updatedShots = [...shots];
-    const lastShotIndex = updatedShots.length - 1;
-    const lastShot = updatedShots[lastShotIndex];
-
-    updatedShots[lastShotIndex] = {
-      ...lastShot,
-      distanceTraveled: lastShot.distanceToHole,
-      completed: true,
-    };
-
-    // Update strokes gained for all shots
-    const shotsWithSG = updateStrokesGained(updatedShots);
-
-    setShots(shotsWithSG);
-    setHoleCompleted(true);
 
     // Save shots to round
     saveShots(shotsWithSG);
@@ -539,19 +625,23 @@ const HoleScreen = () => {
 
   // Handle editing a shot
   const handleEditShot = (index: number) => {
-    // Don't allow editing first shot's lie (always Tee)
-    if (index === 0) {
-      // For first shot, only edit distance if needed
-      setEditingShotIndex(index);
-      setEditDistanceToHole(shots[index].distanceToHole.toString());
-      setEditShotLie('Tee'); // Fixed as Tee
-    } else {
-      const shot = shots[index];
-      setEditingShotIndex(index);
-      setEditShotLie(shot.lie);
-      setEditDistanceToHole(shot.distanceToHole.toString());
-    }
+    const shot = shots[index];
+    setEditingShotIndex(index);
+    setEditShotLie(shot.lie);
+
+    // Set distance with proper unit conversion
+    setEditDistanceToHole(getInitialEditDistance(shot));
+
     setShowEditShotModal(true);
+  };
+
+  // Update the getInitialEditDistance function
+  const getInitialEditDistance = (shot: Shot): string => {
+    if (shot.lie === 'Green') {
+      // Convert yards to feet for display
+      return (shot.distanceToHole * 3).toFixed(0);
+    }
+    return shot.distanceToHole.toString();
   };
 
   // Save edited shot
@@ -566,7 +656,12 @@ const HoleScreen = () => {
 
     const updatedShots = [...shots];
     const currentShot = updatedShots[editingShotIndex];
-    const newDistanceToHole = parseFloat(editDistanceToHole);
+    let newDistanceToHole = parseFloat(editDistanceToHole);
+
+    // If editing a shot on the green, convert feet to yards
+    if (editShotLie === 'Green') {
+      newDistanceToHole = newDistanceToHole / 3;
+    }
 
     // Update shot data
     updatedShots[editingShotIndex] = {
@@ -594,8 +689,29 @@ const HoleScreen = () => {
       };
     }
 
-    // Update strokes gained for all shots
-    const shotsWithSG = updateStrokesGained(updatedShots);
+    // Recalculate strokes gained for all shots
+    let shotsWithSG = [];
+
+    if (holeCompleted) {
+      // If hole is completed, handle calculations like in handleCompleteHole
+      // For previous shots, recalculate SG normally
+      shotsWithSG = updatedShots.map((shot, index) => {
+        if (index < updatedShots.length - 1) {
+          // For previous shots, calculate against the next shot
+          const nextShot = updatedShots[index + 1];
+          const strokesGained = calculateStrokesGained(shot, nextShot);
+          return { ...shot, strokesGained };
+        } else {
+          // For the final shot (holed shot)
+          const expectedStrokes = calculateExpectedStrokes(shot.lie, shot.distanceToHole);
+          const strokesGained = parseFloat((expectedStrokes - 1).toFixed(2));
+          return { ...shot, strokesGained };
+        }
+      });
+    } else {
+      // If hole is not completed, update strokes gained for all shots up to the last one
+      shotsWithSG = updateStrokesGained(updatedShots);
+    }
 
     setShots(shotsWithSG);
     saveShots(shotsWithSG);
@@ -626,20 +742,6 @@ const HoleScreen = () => {
                 <Text style={styles.editIconText}>⚙️</Text>
               </TouchableOpacity>
             </View>
-          )}
-        </View>
-
-        {/* Navigation between holes */}
-        <View style={styles.navigationButtons}>
-          {holeNumber > 1 && (
-            <TouchableOpacity style={styles.navButton} onPress={handlePreviousHole}>
-              <Text style={styles.navButtonText}>← Previous Hole</Text>
-            </TouchableOpacity>
-          )}
-          {holeCompleted && holeNumber < 18 && (
-            <TouchableOpacity style={styles.navButton} onPress={handleNextHole}>
-              <Text style={styles.navButtonText}>Next Hole →</Text>
-            </TouchableOpacity>
           )}
         </View>
 
@@ -701,7 +803,7 @@ const HoleScreen = () => {
                 <View key={shot.id} style={styles.tableRow}>
                   <Text style={[styles.tableCell, styles.shotNumberCell]}>{shot.shotNumber}</Text>
                   <Text style={[styles.tableCell, styles.lieCell]}>{shot.lie}</Text>
-                  <Text style={[styles.tableCell, styles.distanceCell]}>{shot.distanceToHole}</Text>
+                  <Text style={[styles.tableCell, styles.distanceCell]}>{formatDistanceWithUnits(shot.distanceToHole, shot.lie)}</Text>
                   <Text
                     style={[
                       styles.tableCell,
@@ -735,11 +837,7 @@ const HoleScreen = () => {
 
                 {/* Distance input with Add Shot button inline */}
                 <View style={styles.distanceInputRow}>
-                  <TextInput style={styles.distanceInput} value={distanceToHole} onChangeText={setDistanceToHole} keyboardType="numeric" placeholder="Distance to hole (yards)" />
-
-                  <TouchableOpacity style={[styles.holedButton, isHoled && styles.holedButtonActive]} onPress={() => setIsHoled(!isHoled)}>
-                    <Text style={[styles.holedButtonText, isHoled && styles.holedButtonTextActive]}>{isHoled ? 'Holed' : 'Holed It'}</Text>
-                  </TouchableOpacity>
+                  <TextInput style={styles.distanceInput} value={distanceToHole} onChangeText={handleDistanceInputChange} keyboardType="numeric" placeholder={getDistancePlaceholder()} />
 
                   <TouchableOpacity style={[styles.inlineButton, (!distanceToHole || !shotLie) && styles.disabledButton]} onPress={handleAddShot} disabled={!distanceToHole || !shotLie}>
                     <Text style={styles.buttonText}>Add Shot</Text>
@@ -762,6 +860,23 @@ const HoleScreen = () => {
             )}
           </>
         )}
+
+        {/* Navigation buttons at the bottom of the screen */}
+        <View style={styles.navigationButtons}>
+          {holeNumber > 1 ? (
+            <TouchableOpacity style={styles.navButton} onPress={handlePreviousHole}>
+              <Text style={styles.navButtonText}>← Previous Hole</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.emptyNavButton} />
+          )}
+
+          {holeCompleted && holeNumber < 18 && (
+            <TouchableOpacity style={styles.navButton} onPress={handleNextHole}>
+              <Text style={styles.navButtonText}>Next Hole →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Edit Shot Modal */}
         <Modal animationType="slide" transparent={true} visible={showEditShotModal} onRequestClose={closeEditShotModal}>
@@ -786,8 +901,14 @@ const HoleScreen = () => {
               </View>
 
               <View style={styles.inputRow}>
-                <Text style={styles.label}>Distance to Hole (yards):</Text>
-                <TextInput style={styles.input} value={editDistanceToHole} onChangeText={setEditDistanceToHole} keyboardType="numeric" placeholder="Enter distance" />
+                <Text style={styles.label}>Distance to Hole {editShotLie === 'Green' ? '(feet)' : '(yards)'}:</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editDistanceToHole}
+                  onChangeText={setEditDistanceToHole}
+                  keyboardType="numeric"
+                  placeholder={editShotLie === 'Green' ? 'Enter distance in feet' : 'Enter distance in yards'}
+                />
               </View>
 
               <View style={styles.modalButtons}>
@@ -846,16 +967,22 @@ const styles = StyleSheet.create({
   navigationButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 20,
+    marginTop: 10,
   },
   navButton: {
     padding: 10,
     borderRadius: 5,
     backgroundColor: '#607D8B',
+    minWidth: 120,
+    alignItems: 'center',
   },
   navButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  emptyNavButton: {
+    minWidth: 120, // Same width as the nav button for proper alignment
   },
   holeDataSection: {
     backgroundColor: 'white',
@@ -1058,25 +1185,6 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 16,
     marginRight: 10,
-  },
-  holedButton: {
-    flex: 1.2,
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  holedButtonActive: {
-    backgroundColor: '#4CAF50',
-  },
-  holedButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  holedButtonTextActive: {
-    color: 'white',
   },
   inlineButton: {
     flex: 1.5,
