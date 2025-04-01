@@ -1,63 +1,64 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteParams, Course } from '../types';
 import { loadData, STORAGE_KEYS } from '../services/storage';
+import { colors, spacing } from '../theme/globalStyles';
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
+import { Header } from '../components/Header';
+import { Title, Subheading, Body, PixelText } from '../components/Typography';
+import { Divider } from '../components/Divider';
 
 type StartRoundNavigationProp = StackNavigationProp<RouteParams, 'StartRoundScreen'>;
 
 const StartRoundScreen = () => {
   const navigation = useNavigation<StartRoundNavigationProp>();
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [hasCourses, setHasCourses] = useState(false);
 
   useEffect(() => {
-    const loadCourses = async () => {
+    // Check if there are any saved courses
+    const checkCourses = async () => {
       try {
-        const savedCourses = await loadData<Course[]>(STORAGE_KEYS.COURSES);
-        if (savedCourses) {
-          setCourses(savedCourses);
-        }
+        const courses = await loadData<Course[]>(STORAGE_KEYS.COURSES);
+        setHasCourses(!!courses && courses.length > 0);
       } catch (error) {
-        console.error('Error loading courses data', error);
+        console.error('Error checking courses:', error);
       }
     };
 
-    loadCourses();
+    checkCourses();
   }, []);
+
+  const handleSelectCourse = () => {
+    navigation.navigate('CourseSelectionScreen');
+  };
 
   const handleAddCourse = () => {
     navigation.navigate('AddCourseScreen');
   };
 
-  const handleSelectCourse = (course: Course) => {
-    navigation.navigate('CourseSelectionScreen');
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Select a Course</Text>
+      <Header title="Start Round" />
 
-      {courses.length === 0 ? (
-        <View style={styles.noCourses}>
-          <Text style={styles.noCoursesText}>No courses saved yet</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PixelText style={styles.title}>Ready to track your game?</PixelText>
+
+        <Card variant="elevated" style={styles.card}>
+          <Subheading>Select an Option</Subheading>
+          <Divider color={colors.gold} />
+
+          {hasCourses && <Button title="Select Existing Course" onPress={handleSelectCourse} variant="primary" fullWidth style={styles.button} />}
+
+          <Button title="Add New Course" onPress={handleAddCourse} variant={hasCourses ? 'outline' : 'primary'} fullWidth style={styles.button} />
+        </Card>
+
+        <View style={styles.infoSection}>
+          <Body>Track shot-by-shot data to see your strokes gained analysis. Compare your performance to previous rounds and identify areas for improvement.</Body>
         </View>
-      ) : (
-        <FlatList
-          data={courses}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.courseItem} onPress={() => handleSelectCourse(item)}>
-              <Text style={styles.courseName}>{item.name}</Text>
-              <Text style={styles.courseTees}>{item.teeColors.join(', ')}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      )}
-
-      <TouchableOpacity style={styles.addButton} onPress={handleAddCourse}>
-        <Text style={styles.addButtonText}>Add New Course</Text>
-      </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -65,50 +66,30 @@ const StartRoundScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
+  content: {
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  title: {
+    marginVertical: spacing.xl,
     textAlign: 'center',
   },
-  noCourses: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  card: {
+    marginBottom: spacing.xl,
   },
-  noCoursesText: {
-    fontSize: 16,
-    color: '#777',
+  button: {
+    marginVertical: spacing.sm,
   },
-  courseItem: {
-    backgroundColor: 'white',
-    borderRadius: 5,
-    padding: 15,
-    marginBottom: 10,
-  },
-  courseName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  courseTees: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-  },
-  addButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+  infoSection: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.black,
+    borderStyle: 'dashed',
+    backgroundColor: colors.gray[100],
+    borderRadius: 8,
   },
 });
 

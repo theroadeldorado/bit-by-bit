@@ -4,6 +4,11 @@ import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navig
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteParams, LieCondition, Shot, Course, Round, Hole } from '../types';
 import { loadData, saveData, STORAGE_KEYS } from '../services/storage';
+import { colors, spacing, fontFamily } from '../theme/globalStyles';
+import { PixelText, Body, Caption } from '../components/Typography';
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
+import { Header } from '../components/Header';
 
 type HoleScreenRouteProp = RouteProp<RouteParams, 'HoleScreen'>;
 type HoleScreenNavigationProp = StackNavigationProp<RouteParams, 'HoleScreen'>;
@@ -728,25 +733,20 @@ const HoleScreen = () => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+      <Header title={`Hole ${holeNumber}`} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Updated header with compact hole data display */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.header}>Hole {holeNumber}</Text>
-
+        {/* Hole Info */}
+        <View style={styles.holeInfoContainer}>
+          <PixelText style={styles.holeTitle}>HOLE {holeNumber}</PixelText>
           {holeDataSet && !editingHoleData && (
-            <View style={styles.compactHoleData}>
-              <Text style={styles.compactHoleDataText}>
-                {distance}yd Par {par}
-              </Text>
-              <TouchableOpacity style={styles.editIconButton} onPress={handleEditHoleData}>
-                <Text style={styles.editIconText}>⚙️</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.holeDetails}>
+              {distance}yd Par {par}
+            </Text>
           )}
         </View>
 
         {!holeDataSet || editingHoleData ? (
-          <View style={styles.holeDataSection}>
+          <Card variant="elevated" style={styles.cardContainer}>
             <Text style={styles.sectionTitle}>{editingHoleData ? 'Edit Hole Data' : 'Hole Data'}</Text>
 
             <View style={styles.inputRow}>
@@ -766,27 +766,18 @@ const HoleScreen = () => {
             </View>
 
             <View style={styles.buttonsRow}>
-              <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={handleSetHoleData}>
-                <Text style={styles.buttonText}>{editingHoleData ? 'Save Changes' : 'Set Hole Data'}</Text>
-              </TouchableOpacity>
+              <Button title={editingHoleData ? 'Save Changes' : 'Set Hole Data'} onPress={handleSetHoleData} variant="primary" style={styles.actionButton} />
 
-              {editingHoleData && (
-                <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={cancelEditHoleData}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-              )}
+              {editingHoleData && <Button title="Cancel" onPress={cancelEditHoleData} variant="outline" style={styles.actionButton} />}
             </View>
-          </View>
+          </Card>
         ) : (
           <>
-            <View style={styles.shotListSection}>
+            {/* Shots Section */}
+            <Card variant="filled" style={styles.cardContainer}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Shots</Text>
-                {shots.length > 1 && !holeCompleted && (
-                  <TouchableOpacity style={styles.removeButton} onPress={handleRemoveLastShot}>
-                    <Text style={styles.removeButtonText}>Remove Last Shot</Text>
-                  </TouchableOpacity>
-                )}
+                {shots.length > 1 && !holeCompleted && <Button title="Remove Last Shot" onPress={handleRemoveLastShot} variant="outline" size="small" />}
               </View>
 
               {/* Table Header */}
@@ -795,7 +786,7 @@ const HoleScreen = () => {
                 <Text style={[styles.tableHeaderCell, styles.lieCell]}>Lie</Text>
                 <Text style={[styles.tableHeaderCell, styles.distanceCell]}>Dist.</Text>
                 <Text style={[styles.tableHeaderCell, styles.sgCell]}>SG</Text>
-                <Text style={[styles.tableHeaderCell, styles.actionCell]}>Act.</Text>
+                <Text style={[styles.tableHeaderCell, styles.actionCell]}></Text>
               </View>
 
               {/* Table Rows */}
@@ -814,19 +805,19 @@ const HoleScreen = () => {
                     {shot.strokesGained !== undefined ? shot.strokesGained.toFixed(1) : '-'}
                   </Text>
                   <View style={styles.actionCell}>
-                    <TouchableOpacity style={styles.editButtonSmall} onPress={() => handleEditShot(index)}>
+                    <TouchableOpacity style={styles.editButton} onPress={() => handleEditShot(index)}>
                       <Text style={styles.editButtonText}>Edit</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ))}
-            </View>
+            </Card>
 
             {!holeCompleted && (
-              <View style={styles.newShotSection}>
+              <Card variant="filled" style={styles.cardContainer}>
                 <Text style={styles.sectionTitle}>{shots.length > 0 ? 'Add Next Shot' : 'First Shot'}</Text>
 
-                {/* Lie selection - flex wrap instead of scroll */}
+                {/* Lie selection buttons */}
                 <View style={styles.lieSelectionContainer}>
                   {(['Fairway', 'Rough', 'Sand', 'Recovery', 'Green'] as LieCondition[]).map((lie) => (
                     <TouchableOpacity key={lie} style={[styles.lieChip, shotLie === lie && styles.selectedLieChip]} onPress={() => setShotLie(lie)}>
@@ -835,73 +826,57 @@ const HoleScreen = () => {
                   ))}
                 </View>
 
-                {/* Distance input with Add Shot button inline */}
-                <View style={styles.distanceInputRow}>
-                  <TextInput style={styles.distanceInput} value={distanceToHole} onChangeText={handleDistanceInputChange} keyboardType="numeric" placeholder={getDistancePlaceholder()} />
+                {/* Distance input with placeholder */}
+                <TextInput
+                  style={styles.distanceInput}
+                  value={distanceToHole}
+                  onChangeText={handleDistanceInputChange}
+                  keyboardType="numeric"
+                  placeholder={`Distance to hole ${shotLie === 'Green' ? '(feet)' : '(yards)'}`}
+                />
 
-                  <TouchableOpacity style={[styles.inlineButton, (!distanceToHole || !shotLie) && styles.disabledButton]} onPress={handleAddShot} disabled={!distanceToHole || !shotLie}>
-                    <Text style={styles.buttonText}>Add Shot</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                <Button title="Add Shot" onPress={handleAddShot} variant="primary" disabled={!distanceToHole || !shotLie} fullWidth style={styles.addShotButton} />
+              </Card>
             )}
 
-            {/* Complete Hole button - outside and full width */}
-            {!holeCompleted && shots.length > 0 && (
-              <TouchableOpacity style={styles.completeHoleButton} onPress={handleCompleteHole}>
-                <Text style={styles.buttonText}>Complete Hole</Text>
-              </TouchableOpacity>
-            )}
+            {/* Complete Hole button */}
+            {!holeCompleted && shots.length > 0 && <Button title="Complete Hole" onPress={handleCompleteHole} variant="primary" fullWidth style={styles.completeHoleButton} />}
 
-            {holeCompleted && holeNumber === 18 && (
-              <TouchableOpacity style={[styles.actionButton, styles.nextHoleButton]} onPress={handleNextHole}>
-                <Text style={styles.buttonText}>View Summary</Text>
-              </TouchableOpacity>
-            )}
+            {holeCompleted && holeNumber === 18 && <Button title="View Summary" onPress={handleNextHole} variant="primary" fullWidth style={styles.viewSummaryButton} />}
           </>
         )}
 
-        {/* Navigation buttons at the bottom of the screen */}
+        {/* Navigation buttons */}
         <View style={styles.navigationButtons}>
-          {holeNumber > 1 ? (
-            <TouchableOpacity style={styles.navButton} onPress={handlePreviousHole}>
-              <Text style={styles.navButtonText}>← Previous Hole</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.emptyNavButton} />
-          )}
+          {holeNumber > 1 ? <Button title="← Previous Hole" onPress={handlePreviousHole} variant="outline" style={styles.navButton} /> : <View style={styles.emptyNavButton} />}
 
-          {holeCompleted && holeNumber < 18 && (
-            <TouchableOpacity style={styles.navButton} onPress={handleNextHole}>
-              <Text style={styles.navButtonText}>Next Hole →</Text>
-            </TouchableOpacity>
-          )}
+          {holeCompleted && holeNumber < 18 && <Button title="Next Hole →" onPress={handleNextHole} variant="outline" style={styles.navButton} />}
         </View>
 
         {/* Edit Shot Modal */}
         <Modal animationType="slide" transparent={true} visible={showEditShotModal} onRequestClose={closeEditShotModal}>
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <Card variant="elevated" style={styles.modalContent}>
               <Text style={styles.modalTitle}>Edit Shot</Text>
 
               <View style={styles.inputRow}>
                 <Text style={styles.label}>Lie:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.lieButtons}>
+                <View style={styles.lieSelectionContainer}>
                   {(['Fairway', 'Rough', 'Sand', 'Recovery', 'Green'] as LieCondition[]).map((lie) => (
                     <TouchableOpacity
                       key={lie}
-                      style={[styles.lieButton, editShotLie === lie && styles.selectedLieButton, editingShotIndex === 0 && lie !== 'Tee' && styles.disabledLieButton]}
+                      style={[styles.lieChip, editShotLie === lie && styles.selectedLieChip, editingShotIndex === 0 && lie !== 'Tee' && styles.disabledLieChip]}
                       onPress={() => editingShotIndex !== 0 && setEditShotLie(lie)}
                       disabled={editingShotIndex === 0}
                     >
-                      <Text style={styles.lieButtonText}>{lie}</Text>
+                      <Text style={[styles.lieChipText, editShotLie === lie && styles.selectedLieChipText]}>{lie}</Text>
                     </TouchableOpacity>
                   ))}
-                </ScrollView>
+                </View>
               </View>
 
               <View style={styles.inputRow}>
-                <Text style={styles.label}>Distance to Hole {editShotLie === 'Green' ? '(feet)' : '(yards)'}:</Text>
+                <Text style={styles.label}>Distance to hole {editShotLie === 'Green' ? '(feet)' : '(yards)'}:</Text>
                 <TextInput
                   style={styles.input}
                   value={editDistanceToHole}
@@ -912,15 +887,10 @@ const HoleScreen = () => {
               </View>
 
               <View style={styles.modalButtons}>
-                <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={closeEditShotModal}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={handleSaveEditedShot}>
-                  <Text style={styles.buttonText}>Save Changes</Text>
-                </TouchableOpacity>
+                <Button title="Cancel" onPress={closeEditShotModal} variant="outline" style={styles.modalButton} />
+                <Button title="Save Changes" onPress={handleSaveEditedShot} variant="primary" style={styles.modalButton} />
               </View>
-            </View>
+            </Card>
           </View>
         </Modal>
       </ScrollView>
@@ -931,99 +901,60 @@ const HoleScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
   scrollContainer: {
-    padding: 20,
+    padding: spacing.md,
   },
-  headerContainer: {
+  holeInfoContainer: {
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: spacing.xl,
+    marginTop: spacing.md,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
+  holeTitle: {
+    fontSize: 32,
+    marginBottom: spacing.sm,
     textAlign: 'center',
+    color: colors.black,
   },
-  compactHoleData: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+  holeDetails: {
+    fontSize: 18,
+    color: colors.gray[600],
+    fontFamily: 'Inter',
   },
-  compactHoleDataText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-  },
-  editIconButton: {
-    marginLeft: 8,
-    padding: 3,
-  },
-  editIconText: {
-    fontSize: 16,
-  },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  navButton: {
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#607D8B',
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  navButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  emptyNavButton: {
-    minWidth: 120, // Same width as the nav button for proper alignment
-  },
-  holeDataSection: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
+  cardContainer: {
+    marginBottom: spacing.lg,
+    padding: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: spacing.md,
+    fontFamily: 'Inter-Bold',
+    color: colors.black,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  removeButton: {
-    padding: 5,
-    backgroundColor: '#FF5252',
-    borderRadius: 5,
-  },
-  removeButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+    marginBottom: spacing.md,
   },
   inputRow: {
-    marginBottom: 15,
+    marginBottom: spacing.md,
   },
   label: {
     fontSize: 16,
-    marginBottom: 5,
+    marginBottom: spacing.xs,
+    fontFamily: 'Inter',
+    color: colors.gray[600],
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
+    borderColor: colors.gray[300],
+    borderRadius: 8,
+    padding: spacing.sm,
     fontSize: 16,
+    fontFamily: 'Inter',
   },
   parButtons: {
     flexDirection: 'row',
@@ -1034,67 +965,54 @@ const styles = StyleSheet.create({
     height: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.gray[200],
     borderRadius: 30,
     margin: 5,
+    borderWidth: 2,
+    borderColor: colors.gray[300],
   },
   selectedParButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.green,
+    borderColor: colors.black,
   },
   parButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: colors.black,
+  },
+  buttonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   actionButton: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
     flex: 1,
-  },
-  saveButton: {
-    backgroundColor: '#4CAF50',
-    marginRight: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#FF5252',
-    marginLeft: 5,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  shotListSection: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
+    marginHorizontal: spacing.xs,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-    paddingVertical: 10,
-    marginBottom: 5,
+    backgroundColor: colors.gray[200],
+    borderBottomWidth: 2,
+    borderBottomColor: colors.black,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.xs,
   },
   tableHeaderCell: {
     fontWeight: 'bold',
     fontSize: 14,
-    color: 'black',
+    color: colors.black,
+    fontFamily: 'Inter-Bold',
   },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingVertical: 12,
+    borderBottomColor: colors.gray[200],
+    paddingVertical: spacing.sm,
     alignItems: 'center',
   },
   tableCell: {
-    fontSize: 14,
-    color: 'black',
+    fontSize: 16,
+    color: colors.black,
+    fontFamily: 'Inter',
   },
   shotNumberCell: {
     width: 40,
@@ -1102,108 +1020,101 @@ const styles = StyleSheet.create({
   },
   lieCell: {
     flex: 1.2,
-    paddingLeft: 5,
+    paddingLeft: spacing.xs,
   },
   distanceCell: {
-    width: 50,
+    width: 80,
     textAlign: 'right',
-    paddingRight: 5,
+    paddingRight: spacing.xs,
   },
   sgCell: {
-    width: 40,
+    width: 60,
     textAlign: 'center',
   },
   actionCell: {
     width: 60,
     alignItems: 'center',
   },
-  editButtonSmall: {
-    backgroundColor: '#2196F3',
-    padding: 4,
+  editButton: {
+    backgroundColor: colors.green,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    margin: 2,
-    width: '90%',
+    borderWidth: 1,
+    borderColor: colors.black,
+  },
+  editButtonText: {
+    color: colors.black,
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   positiveValue: {
-    color: 'green',
+    color: colors.green,
     fontWeight: 'bold',
   },
   negativeValue: {
-    color: 'red',
-  },
-  distanceFullCell: {
-    flex: 1,
-    textAlign: 'right',
-    paddingRight: 5,
-  },
-  subSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
-  },
-  newShotSection: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
+    color: '#d32f2f',
   },
   lieSelectionContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 15,
+    marginBottom: spacing.md,
   },
   lieChip: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#e0e0e0',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.gray[200],
     borderRadius: 20,
-    margin: 5,
+    margin: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
   },
   selectedLieChip: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.green,
+    borderColor: colors.black,
+  },
+  disabledLieChip: {
+    opacity: 0.5,
   },
   lieChipText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.black,
+    fontFamily: 'Inter',
   },
   selectedLieChipText: {
-    color: 'white',
+    color: colors.black,
     fontWeight: 'bold',
   },
-  distanceInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   distanceInput: {
-    flex: 3,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
+    borderColor: colors.gray[300],
+    borderRadius: 8,
+    padding: spacing.md,
     fontSize: 16,
-    marginRight: 10,
+    fontFamily: 'Inter',
+    marginBottom: spacing.md,
   },
-  inlineButton: {
-    flex: 1.5,
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#cccccc',
-    opacity: 0.7,
+  addShotButton: {
+    marginTop: spacing.sm,
   },
   completeHoleButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.lg,
+  },
+  viewSummaryButton: {
+    marginBottom: spacing.lg,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  navButton: {
+    minWidth: 120,
+  },
+  emptyNavButton: {
+    minWidth: 120,
   },
   modalOverlay: {
     flex: 1,
@@ -1212,55 +1123,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 20,
     width: '90%',
     maxHeight: '80%',
+    padding: spacing.lg,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: spacing.lg,
     textAlign: 'center',
+    fontFamily: 'Inter-Bold',
+    color: colors.black,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: spacing.lg,
   },
-  disabledLieButton: {
-    backgroundColor: '#e0e0e0',
-    opacity: 0.5,
-  },
-  buttonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  nextHoleButton: {
-    backgroundColor: '#FF9800',
-  },
-  lieButtons: {
-    flexDirection: 'row',
-    marginVertical: 10,
-  },
-  lieButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  selectedLieButton: {
-    backgroundColor: '#4CAF50',
-  },
-  lieButtonText: {
-    fontSize: 14,
-  },
-  editButtonText: {
-    color: 'black',
-    fontWeight: 'bold',
-    fontSize: 12,
+  modalButton: {
+    flex: 1,
+    marginHorizontal: spacing.xs,
   },
 });
 

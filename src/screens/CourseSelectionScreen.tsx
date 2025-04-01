@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { View, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteParams, TeeColor, Course, Round } from '../types';
 import { loadData, saveData, STORAGE_KEYS } from '../services/storage';
+import { colors, spacing } from '../theme/globalStyles';
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
+import { Header } from '../components/Header';
+import { Title, Subheading, Body, PixelText, Caption } from '../components/Typography';
+import { Divider } from '../components/Divider';
 
 type CourseSelectionNavigationProp = StackNavigationProp<RouteParams, 'CourseSelectionScreen'>;
 
@@ -70,37 +76,62 @@ const CourseSelectionScreen = () => {
     }
   };
 
+  const getTeeButtonStyle = (tee: TeeColor) => {
+    let teeStyle = {
+      ...styles.teeButton,
+      backgroundColor: tee.toLowerCase(),
+    };
+
+    if (selectedTee === tee) {
+      teeStyle = {
+        ...teeStyle,
+        ...styles.selectedTee,
+      };
+    }
+
+    return teeStyle;
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Select a Course</Text>
+      <Header title="Select Course" />
 
-      <FlatList
-        data={courses}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={[styles.courseItem, selectedCourse?.id === item.id && styles.selectedItem]} onPress={() => handleSelectCourse(item)}>
-            <Text style={styles.courseName}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
-        style={styles.list}
-      />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Card variant="elevated" style={styles.courseCard}>
+          <Subheading>Course</Subheading>
+          <Divider color={colors.gold} />
 
-      {selectedCourse && (
-        <>
-          <Text style={styles.header}>Select Tee Color</Text>
-          <View style={styles.teeContainer}>
-            {selectedCourse.teeColors.map((tee) => (
-              <TouchableOpacity key={tee} style={[styles.teeButton, { backgroundColor: tee.toLowerCase() }, selectedTee === tee && styles.selectedTee]} onPress={() => handleSelectTee(tee)}>
-                <Text style={styles.teeText}>{tee}</Text>
+          <FlatList
+            data={courses}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={[styles.courseItem, selectedCourse?.id === item.id && styles.selectedCourseItem]} onPress={() => handleSelectCourse(item)}>
+                <Body style={styles.courseName}>{item.name}</Body>
               </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
+            )}
+            style={styles.list}
+            scrollEnabled={false}
+            nestedScrollEnabled={false}
+          />
+        </Card>
 
-      <TouchableOpacity style={[styles.startButton, (!selectedCourse || !selectedTee) && styles.disabledButton]} onPress={handleStartRound} disabled={!selectedCourse || !selectedTee}>
-        <Text style={styles.startButtonText}>Start Round</Text>
-      </TouchableOpacity>
+        {selectedCourse && (
+          <Card variant="elevated" style={styles.teeCard}>
+            <Subheading>Tee Color</Subheading>
+            <Divider color={colors.gold} />
+
+            <View style={styles.teeContainer}>
+              {selectedCourse.teeColors.map((tee) => (
+                <TouchableOpacity key={tee} style={getTeeButtonStyle(tee)} onPress={() => handleSelectTee(tee)}>
+                  <Caption style={styles.teeText}>{tee}</Caption>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        <Button title="Start Round" onPress={handleStartRound} disabled={!selectedCourse || !selectedTee} variant="primary" fullWidth style={styles.startButton} />
+      </ScrollView>
     </View>
   );
 };
@@ -108,36 +139,40 @@ const CourseSelectionScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
-  header: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
+  content: {
+    padding: spacing.md,
+  },
+  courseCard: {
+    marginBottom: spacing.lg,
+  },
+  teeCard: {
+    marginBottom: spacing.lg,
   },
   list: {
     maxHeight: 200,
   },
   courseItem: {
-    backgroundColor: 'white',
-    borderRadius: 5,
-    padding: 15,
-    marginBottom: 10,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.gray[300],
   },
-  selectedItem: {
-    backgroundColor: '#e0f7fa',
+  selectedCourseItem: {
     borderWidth: 2,
-    borderColor: '#4dd0e1',
+    borderColor: colors.green,
+    backgroundColor: colors.gray[100],
   },
   courseName: {
-    fontSize: 16,
     fontWeight: 'bold',
   },
   teeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 20,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginVertical: spacing.md,
   },
   teeButton: {
     width: 70,
@@ -145,37 +180,23 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    margin: spacing.sm,
+    borderWidth: 2,
+    borderColor: colors.black,
   },
   selectedTee: {
     borderWidth: 3,
-    borderColor: '#000',
+    borderColor: colors.green,
   },
   teeText: {
-    color: 'white',
+    color: colors.cream,
     fontWeight: 'bold',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   startButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  disabledButton: {
-    backgroundColor: '#cccccc',
-  },
-  startButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginVertical: spacing.lg,
   },
 });
 

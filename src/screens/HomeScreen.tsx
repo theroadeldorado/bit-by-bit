@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteParams, Round } from '../types';
 import { loadData, STORAGE_KEYS } from '../services/storage';
+import { colors, spacing } from '../theme/globalStyles';
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
+import { Title, Subheading, Body, Caption, PixelText } from '../components/Typography';
+import { Divider } from '../components/Divider';
+import { Logo } from '../components/Logo';
 
 type HomeScreenNavigationProp = StackNavigationProp<RouteParams, 'HomeScreen'>;
 
@@ -49,39 +55,97 @@ const HomeScreen = () => {
     navigation.navigate('StartRoundScreen');
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getStrokeGainedColor = (value: number) => {
+    return value >= 0 ? colors.gold : '#d32f2f';
+  };
+
+  const getStrokeGainedPrefix = (value: number) => {
+    return value >= 0 ? '+' : '';
+  };
+
+  const renderLatestRound = () => {
+    if (recentRounds.length === 0) {
+      return (
+        <Card variant="outline" style={styles.latestRoundCard}>
+          <PixelText color={colors.gray[600]} textAlign="center">
+            No rounds recorded yet
+          </PixelText>
+        </Card>
+      );
+    }
+
+    const latestRound = recentRounds[0];
+    const latestRoundTotal = latestRound.totalStrokes || 0;
+
+    return (
+      <Card variant="elevated" style={styles.latestRoundCard}>
+        <Subheading>Latest Round</Subheading>
+        <Divider color={colors.gold} />
+        <View style={styles.latestRoundContent}>
+          <Body>{formatDate(latestRound.date)}</Body>
+          <View style={styles.scoreContainer}>
+            <PixelText style={styles.scoreText} color={getStrokeGainedColor(latestRoundTotal)}>
+              {getStrokeGainedPrefix(latestRoundTotal)}
+              {latestRoundTotal.toFixed(1)}
+            </PixelText>
+          </View>
+        </View>
+      </Card>
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Bit by Bit</Text>
-        <Text style={styles.subtitle}>Golf Performance Tracker</Text>
+        <Logo size="large" />
       </View>
 
-      <TouchableOpacity style={styles.startButton} onPress={handleStartRound}>
-        <Text style={styles.startButtonText}>Start Round</Text>
-      </TouchableOpacity>
+      <View style={styles.content}>
+        {renderLatestRound()}
 
-      <View style={styles.statsContainer}>
-        <Text style={styles.statsHeader}>Last 10 Rounds Averages</Text>
+        <View style={styles.statsSection}>
+          <Subheading>Your Trends</Subheading>
+          <Divider color={colors.gold} />
 
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Driving:</Text>
-          <Text style={styles.statValue}>{averages.driving.toFixed(1)}</Text>
+          <View style={styles.statRow}>
+            <Body>Driving:</Body>
+            <PixelText color={getStrokeGainedColor(averages.driving)}>
+              {getStrokeGainedPrefix(averages.driving)}
+              {averages.driving.toFixed(1)}
+            </PixelText>
+          </View>
+
+          <View style={styles.statRow}>
+            <Body>Approach:</Body>
+            <PixelText color={getStrokeGainedColor(averages.approach)}>
+              {getStrokeGainedPrefix(averages.approach)}
+              {averages.approach.toFixed(1)}
+            </PixelText>
+          </View>
+
+          <View style={styles.statRow}>
+            <Body>Short Game:</Body>
+            <PixelText color={getStrokeGainedColor(averages.shortGame)}>
+              {getStrokeGainedPrefix(averages.shortGame)}
+              {averages.shortGame.toFixed(1)}
+            </PixelText>
+          </View>
+
+          <View style={styles.statRow}>
+            <Body>Putting:</Body>
+            <PixelText color={getStrokeGainedColor(averages.putting)}>
+              {getStrokeGainedPrefix(averages.putting)}
+              {averages.putting.toFixed(1)}
+            </PixelText>
+          </View>
         </View>
 
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Approach:</Text>
-          <Text style={styles.statValue}>{averages.approach.toFixed(1)}</Text>
-        </View>
-
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Short Game:</Text>
-          <Text style={styles.statValue}>{averages.shortGame.toFixed(1)}</Text>
-        </View>
-
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Putting:</Text>
-          <Text style={styles.statValue}>{averages.putting.toFixed(1)}</Text>
-        </View>
+        <Button title="Start Round" onPress={handleStartRound} variant="primary" size="large" fullWidth style={styles.startButton} />
       </View>
     </ScrollView>
   );
@@ -90,56 +154,48 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.cream,
   },
   header: {
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+  content: {
+    padding: spacing.md,
   },
-  subtitle: {
-    fontSize: 16,
-    marginTop: 5,
+  latestRoundCard: {
+    marginBottom: spacing.lg,
   },
-  startButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 5,
-    margin: 20,
+  latestRoundContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: spacing.sm,
   },
-  startButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+  scoreContainer: {
+    backgroundColor: colors.black,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  statsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 5,
-    margin: 20,
-    padding: 15,
+  scoreText: {
+    fontSize: 24,
   },
-  statsHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  statsSection: {
+    marginBottom: spacing.xl,
   },
   statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.gray[200],
   },
-  statLabel: {
-    fontSize: 16,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  startButton: {
+    marginVertical: spacing.lg,
   },
 });
 

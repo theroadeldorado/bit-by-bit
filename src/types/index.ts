@@ -44,6 +44,7 @@ export interface RoundSummary {
 
 // Update RouteParams to work with React Navigation
 export type RouteParams = {
+  SplashScreen: undefined;
   HomeScreen: undefined;
   StartRoundScreen: undefined;
   CourseSelectionScreen: undefined;
