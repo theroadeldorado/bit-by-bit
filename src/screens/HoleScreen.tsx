@@ -613,7 +613,21 @@ const HoleScreen = () => {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.header}>Hole {holeNumber}</Text>
+        {/* Updated header with compact hole data display */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.header}>Hole {holeNumber}</Text>
+
+          {holeDataSet && !editingHoleData && (
+            <View style={styles.compactHoleData}>
+              <Text style={styles.compactHoleDataText}>
+                {distance}yd Par {par}
+              </Text>
+              <TouchableOpacity style={styles.editIconButton} onPress={handleEditHoleData}>
+                <Text style={styles.editIconText}>⚙️</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* Navigation between holes */}
         <View style={styles.navigationButtons}>
@@ -663,20 +677,6 @@ const HoleScreen = () => {
           </View>
         ) : (
           <>
-            <View style={styles.holeInfoSection}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Distance:</Text>
-                <Text style={styles.infoValue}>{distance} yards</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Par:</Text>
-                <Text style={styles.infoValue}>{par}</Text>
-              </View>
-              <TouchableOpacity style={styles.editButton} onPress={handleEditHoleData}>
-                <Text style={styles.editButtonText}>Edit Hole Data</Text>
-              </TouchableOpacity>
-            </View>
-
             <View style={styles.shotListSection}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Shots</Text>
@@ -815,11 +815,33 @@ const styles = StyleSheet.create({
   scrollContainer: {
     padding: 20,
   },
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 5,
     textAlign: 'center',
+  },
+  compactHoleData: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  compactHoleDataText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666',
+  },
+  editIconButton: {
+    marginLeft: 8,
+    padding: 3,
+  },
+  editIconText: {
+    fontSize: 16,
   },
   navigationButtons: {
     flexDirection: 'row',
@@ -916,36 +938,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  holeInfoSection: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  infoLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  infoValue: {
-    fontSize: 16,
-  },
-  editButton: {
-    alignSelf: 'flex-end',
-    marginTop: 5,
-    padding: 5,
-    backgroundColor: '#FFC107',
-    borderRadius: 5,
-  },
-  editButtonText: {
-    color: 'black',
-    fontWeight: 'bold',
-    fontSize: 12,
   },
   shotListSection: {
     backgroundColor: 'white',
@@ -1156,6 +1148,11 @@ const styles = StyleSheet.create({
   },
   lieButtonText: {
     fontSize: 14,
+  },
+  editButtonText: {
+    color: 'black',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
 });
 
